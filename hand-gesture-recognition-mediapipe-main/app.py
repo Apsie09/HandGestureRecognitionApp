@@ -21,7 +21,7 @@ from model import PointHistoryClassifier
 import requests
 
 last_sent_time = 0
-send_interval = 0.1
+send_interval = 0.5
 
 def send_pointer_coords(coords, gesture_move_type):
     global last_sent_time
@@ -43,6 +43,55 @@ def send_pointer_coords(coords, gesture_move_type):
             last_sent_time = current_time  # Update the last sent time
         except socket.error as e:
             print(f"Error sending pointer coordinates: {e}")
+        finally:
+            sock.close()
+
+import json
+import socket
+import time
+
+last_sent_time = 0
+send_interval = 0.1
+
+def send_pointer_coords(coords, gesture_move_type):
+    global last_sent_time
+    current_time = time.time()
+
+    if current_time - last_sent_time >= send_interval:
+        udp_ip = 'localhost'  # Target IP address
+        udp_port = 10000  # Replace with your target port number
+        message = json.dumps({
+            "x": coords[0],
+            "y": coords[1],
+            "gesture": gesture_move_type
+        }).encode('utf-8')  # Convert the message to JSON format
+
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)  # Create a UDP socket
+            sock.sendto(message, (udp_ip, udp_port))  # Send the message
+            last_sent_time = current_time  # Update the last sent time
+        except socket.error as e:
+            print(f"Error sending pointer coordinates: {e}")
+        finally:
+            sock.close()
+
+def send_hand_sign(hand_sign_text):
+    global last_sent_time
+    current_time = time.time()
+
+    if current_time - last_sent_time >= send_interval:
+        udp_ip = 'localhost'  # Target IP address
+        udp_port = 10000  # Target port number
+        message = json.dumps({
+            "hand_sign": hand_sign_text
+        }).encode('utf-8')  # Convert the message to JSON format
+
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)  # Create a UDP socket
+            sock.sendto(message, (udp_ip, udp_port))  # Send the message
+            last_sent_time = current_time  # Update the last sent time
+        except socket.error as e:
+            print(f"Error sending hand sign: {e}")
         finally:
             sock.close()
 
@@ -175,12 +224,15 @@ def main():
 
                 # Hand sign classification
                 hand_sign_id = keypoint_classifier(pre_processed_landmark_list)
+                hand_sign_text = keypoint_classifier_labels[hand_sign_id]
                 if hand_sign_id == 2:  # Point gesture
                     point_history.append(landmark_list[8])
                     pointer_coords = landmark_list[8]
                     finger_gesture_id = point_history_classifier(pre_processed_point_history_list)
                     gesture_move_type = point_history_classifier_labels[finger_gesture_id]
                     send_pointer_coords(pointer_coords, gesture_move_type)
+                elif hand_sign_text in ["Open", "Close", "OK"]:
+                    send_hand_sign(hand_sign_text)
                 else:
                     point_history.append([0, 0])
 
