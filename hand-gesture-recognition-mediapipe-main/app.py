@@ -46,10 +46,6 @@ def send_pointer_coords(coords, gesture_move_type):
         finally:
             sock.close()
 
-import json
-import socket
-import time
-
 last_sent_time = 0
 send_interval = 0.1
 
