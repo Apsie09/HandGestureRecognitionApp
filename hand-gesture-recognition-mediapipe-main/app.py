@@ -21,7 +21,8 @@ from model import PointHistoryClassifier
 import requests
 
 last_sent_time = 0
-send_interval = 0.5
+send_interval = 1.0
+ok_gesture_sent = False # Flag to check if the OK gesture has been sent
 
 def send_pointer_coords(coords, gesture_move_type):
     global last_sent_time
@@ -29,7 +30,7 @@ def send_pointer_coords(coords, gesture_move_type):
 
     # Check if the interval has passed
     if current_time - last_sent_time >= send_interval:
-        udp_ip = 'localhost'  # Replace with your target IP address
+        udp_ip = '192.168.50.38'  # Replace with your target IP address
         udp_port = 10000  # Replace with your target port number
         message = json.dumps({
             "x": coords[0],
@@ -46,50 +47,58 @@ def send_pointer_coords(coords, gesture_move_type):
         finally:
             sock.close()
 
-last_sent_time = 0
-send_interval = 0.1
 
-def send_pointer_coords(coords, gesture_move_type):
-    global last_sent_time
-    current_time = time.time()
-
-    if current_time - last_sent_time >= send_interval:
-        udp_ip = 'localhost'  # Target IP address
-        udp_port = 10000  # Replace with your target port number
-        message = json.dumps({
-            "x": coords[0],
-            "y": coords[1],
-            "gesture": gesture_move_type
-        }).encode('utf-8')  # Convert the message to JSON format
-
-        try:
-            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)  # Create a UDP socket
-            sock.sendto(message, (udp_ip, udp_port))  # Send the message
-            last_sent_time = current_time  # Update the last sent time
-        except socket.error as e:
-            print(f"Error sending pointer coordinates: {e}")
-        finally:
-            sock.close()
+# def send_pointer_coords(coords, gesture_move_type):
+#     global last_sent_time
+#     current_time = time.time()
+#
+#     if current_time - last_sent_time >= send_interval:
+#         udp_ip = '192.168.50.38'  # Target IP address
+#         udp_port = 10000  # Replace with your target port number
+#         message = json.dumps({
+#             # "x": coords[0],
+#             # "y": coords[1],
+#             "gesture": gesture_move_type
+#         }).encode('utf-8')  # Convert the message to JSON format
+#
+#         try:
+#             sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)  # Create a UDP socket
+#             sock.sendto(message, (udp_ip, udp_port))  # Send the message
+#             last_sent_time = current_time  # Update the last sent time
+#         except socket.error as e:
+#             print(f"Error sending pointer coordinates: {e}")
+#         finally:
+#             sock.close()
 
 def send_hand_sign(hand_sign_text):
-    global last_sent_time
+    global last_sent_time, ok_gesture_sent
     current_time = time.time()
 
+    if hand_sign_text == "OK" and ok_gesture_sent:
+        return # Skip sending the OK gesture if it has already been sent
+
     if current_time - last_sent_time >= send_interval:
-        udp_ip = 'localhost'  # Target IP address
+        udp_ip = '192.168.50.38'  # Target IP address
         udp_port = 10000  # Target port number
         message = json.dumps({
-            "hand_sign": hand_sign_text
+            "gesture": hand_sign_text
         }).encode('utf-8')  # Convert the message to JSON format
 
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)  # Create a UDP socket
             sock.sendto(message, (udp_ip, udp_port))  # Send the message
             last_sent_time = current_time  # Update the last sent time
+            if hand_sign_text == "OK":
+                ok_gesture_sent = True # Set the flag if "OK" gesture is sent
         except socket.error as e:
             print(f"Error sending hand sign: {e}")
         finally:
             sock.close()
+
+# Reset the flag when the gesture changes
+def reset_ok_gesture_flag():
+    global ok_gesture_sent
+    ok_gesture_sent = False
 
 
 def get_args():
@@ -137,7 +146,7 @@ def main():
     mp_hands = mp.solutions.hands
     hands = mp_hands.Hands(
         static_image_mode=use_static_image_mode,
-        max_num_hands=2,
+        max_num_hands=1,
         min_detection_confidence=min_detection_confidence,
         min_tracking_confidence=min_tracking_confidence,
     )
@@ -229,6 +238,8 @@ def main():
                     send_pointer_coords(pointer_coords, gesture_move_type)
                 elif hand_sign_text in ["Open", "Close", "OK"]:
                     send_hand_sign(hand_sign_text)
+                    if hand_sign_text != "OK":
+                        reset_ok_gesture_flag()
                 else:
                     point_history.append([0, 0])
 
