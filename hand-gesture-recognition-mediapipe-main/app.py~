@@ -78,8 +78,7 @@ def send_hand_sign(hand_sign_text):
         return # Skip sending the OK gesture if it has already been sent
 
     if current_time - last_sent_time >= send_interval:
-        # udp_ip = '192.168.50.38'  # Target IP address
-        udp_ip = 'localhost'  # Target IP address
+        udp_ip = '192.168.50.38'  # Target IP address
         udp_port = 10000  # Target port number
         message = json.dumps({
             "gesture": hand_sign_text
